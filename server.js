@@ -42,20 +42,107 @@ app.post("/users", async (req, res) => {
       imageUrl: data.imageUrl,
     });
   if (error) {
+    console.log("User not created")
+    console.log(error)
     res.send({ message: error });
   } else {
     res.send({ message: "User created successfully" });
   }
 });
+
 // GET request to retrieve all groups from supabase
 app.get("/groups", async (req, res) => {
   const { data, error } = await supabase.from("groups").select();
   res.send(data);
 });
+// GET request to retrieve all groups a user is in from supabase
+app.get("/groups/curr", async (req, res) => {
+  try {
+      const userID = req.query.userID;
+
+      // Fetch all groupIDs where the userID is present
+      const { data: userGroups, error: userGroupsError } = await supabase
+          .from('user-groups')
+          .select('groupID')
+          .eq('userID', userID);
+
+      if (userGroupsError) {
+          throw userGroupsError;
+      }
+
+      // Extract groupIDs
+      const groupIDs = userGroups.map(ug => ug.groupID);
+
+      // Fetch group information from the groups table
+      const { data: groups, error: groupsError } = await supabase
+          .from('groups')
+          .select('*')
+          .in('id', groupIDs);
+
+      if (groupsError) {
+          throw groupsError;
+      }
+
+      res.send(groups);
+  } catch (error) {
+      console.error(error);
+      res.status(500).send({ message: "An error occurred" });
+  }
+});
+
+// GET request to retrieve all groups in which a user is NOT in from supabase
+app.get("/groups/new", async (req, res) => {
+  try {
+    const userID = req.query.userID;
+
+    // Fetch all unique groupIDs
+    const { data: allGroups, error: allGroupsError } = await supabase
+      .from('user-groups')
+      .select('groupID', { count: 'exact' });
+
+    if (allGroupsError) {
+      throw allGroupsError;
+    }
+
+    let groupsNotIn = [];
+
+    // For each group, check if the user is a part of it
+    for (let group of allGroups) {
+      const { data: userInGroup, error: userInGroupError } = await supabase
+        .from('user-groups')
+        .select('*')
+        .eq('groupID', group.groupID)
+        .eq('userID', userID);
+
+      if (userInGroupError) {
+        throw userInGroupError;
+      }
+
+      // If user is not in the group, add it to the list
+      if (userInGroup.length === 0) {
+        groupsNotIn.push(group.groupID);
+      }
+    }
+
+    // Fetch group details for the groups the user is not in
+    const { data: finalGroups, error: finalGroupsError } = await supabase
+      .from('groups')
+      .select('*')
+      .in('id', groupsNotIn);
+
+    if (finalGroupsError) {
+      throw finalGroupsError;
+    }
+
+    res.send(finalGroups);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "An error occurred" });
+  }
+});
 
 // GET request to retrieve all members from a group
 app.get("/groups/:groupID/members", async (req, res) => {
-  console.log("Here")
     const groupID = req.params.groupID;
     console.log(groupID)
     const { data, error } = await supabase
@@ -106,4 +193,23 @@ app.post("/groups", async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
+});
+
+// POST request to add a user to a group as a member
+app.post("/groups/:groupID/members", async (req, res) => {
+  const groupID = req.params.groupID;
+  const body = req.body;
+  const userID = body.userID;
+
+  // Create user-group relationship
+  const { error } = await supabase
+    .from("user-groups")
+    .insert({ userID: userID, groupID: groupID, role: "member" });
+
+  if (error) {
+    console.error(error);
+    return res.status(500).send({ message: error });
+  }
+  console.log("User-group relationship created successfully");
+  res.send({ message: "Success!" });
 });
