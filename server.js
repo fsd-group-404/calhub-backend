@@ -29,9 +29,8 @@ app.get("/users/:id", async (req, res) => {
 
 // POST request to add a new user to Supabase
 app.post("/users", async (req, res) => {
+  console.log("Received request to add user to users table")
   const data = req.body;
-  console.log("User data receieved");
-  console.log(data);
   const { error } = await supabase
     .from("users")
     .insert({
@@ -42,7 +41,7 @@ app.post("/users", async (req, res) => {
       imageUrl: data.imageUrl,
     });
   if (error) {
-    console.log("User not created")
+    console.log("User not created: ")
     console.log(error)
     res.send({ message: error });
   } else {
@@ -59,6 +58,7 @@ app.get("/groups", async (req, res) => {
 app.get("/groups/curr", async (req, res) => {
   try {
       const userID = req.query.userID;
+      console.log("Recieved request to get all curr groups that user {" + userID + "} is in") 
 
       // Fetch all groupIDs where the userID is present
       const { data: userGroups, error: userGroupsError } = await supabase
@@ -82,7 +82,7 @@ app.get("/groups/curr", async (req, res) => {
       if (groupsError) {
           throw groupsError;
       }
-
+      console.log("Got curr groups successfully")
       res.send(groups);
   } catch (error) {
       console.error(error);
@@ -94,6 +94,8 @@ app.get("/groups/curr", async (req, res) => {
 app.get("/groups/new", async (req, res) => {
   try {
     const userID = req.query.userID;
+    console.log("Recieved request to get all new groups that user {" + userID + "} is NOT in") 
+
 
     // Fetch all unique groupIDs
     const { data: allGroups, error: allGroupsError } = await supabase
@@ -134,6 +136,7 @@ app.get("/groups/new", async (req, res) => {
       throw finalGroupsError;
     }
 
+    console.log("Got new groups successfully")
     res.send(finalGroups);
   } catch (error) {
     console.error(error);
@@ -144,7 +147,7 @@ app.get("/groups/new", async (req, res) => {
 // GET request to retrieve all members from a group
 app.get("/groups/:groupID/members", async (req, res) => {
     const groupID = req.params.groupID;
-    console.log(groupID)
+    console.log("Received request to get all members of group {" + groupID + "}")
     const { data, error } = await supabase
         .from('user-groups')
         .select('userID, users(*)')
@@ -154,7 +157,7 @@ app.get("/groups/:groupID/members", async (req, res) => {
       console.log(error)
       return res.status(500).send({ message: error });
     }
-    console.log(data)
+    console.log("Got members successfully")
     res.send(data);
 });
 
@@ -187,7 +190,7 @@ app.post("/groups", async (req, res) => {
     return res.status(500).send({ message: error2});
   }
 
-  console.log("User-group relationship created successfully");
+  console.log("Owner relationship created successfully");
   res.send({ message: "Success!" });
 });
 
@@ -200,6 +203,7 @@ app.post("/groups/:groupID/members", async (req, res) => {
   const groupID = req.params.groupID;
   const body = req.body;
   const userID = body.userID;
+  console.log("Received request to add user {" + userID + "} to group {" + groupID + "} as a member")
 
   // Create user-group relationship
   const { error } = await supabase
@@ -210,6 +214,6 @@ app.post("/groups/:groupID/members", async (req, res) => {
     console.error(error);
     return res.status(500).send({ message: error });
   }
-  console.log("User-group relationship created successfully");
+  console.log("Successfully added user to group as a member");
   res.send({ message: "Success!" });
 });
