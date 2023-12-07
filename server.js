@@ -146,19 +146,20 @@ app.get("/groups/new", async (req, res) => {
 
 // GET request to retrieve all members from a group
 app.get("/groups/:groupID/members", async (req, res) => {
-    const groupID = req.params.groupID;
-    console.log("Received request to get all members of group {" + groupID + "}")
-    const { data, error } = await supabase
-        .from('user-groups')
-        .select('userID, users(*)')
-        .eq('groupID', groupID);
+  const groupID = req.params.groupID;
+  console.log("Received request to get all members of group {" + groupID + "}")
+  
+  const { data, error } = await supabase
+      .from('user-groups')
+      .select('userID, role, users(*)') // Include the 'role' column here
+      .eq('groupID', groupID);
 
-    if (error) {
-      console.log(error)
-      return res.status(500).send({ message: error });
-    }
-    console.log("Got members successfully")
-    res.send(data);
+  if (error) {
+    console.log(error)
+    return res.status(500).send({ message: error });
+  }
+  console.log("Got members successfully")
+  res.send(data);
 });
 
 // POST request to create a group as the owner
@@ -169,7 +170,7 @@ app.post("/groups", async (req, res) => {
   // Create group in groups table
   const { data, error } = await supabase
     .from("groups")
-    .insert({ name: body.name, description: body.description, size: body.size })
+    .insert({ code: body.code, name: body.name, description: body.description, sizeLimit: body.sizeLimit })
     .select();
 
   if (error) {
@@ -215,5 +216,26 @@ app.post("/groups/:groupID/members", async (req, res) => {
     return res.status(500).send({ message: error });
   }
   console.log("Successfully added user to group as a member");
+  res.send({ message: "Success!" });
+});
+
+// write a request to remove a user from a group given their userid
+app.delete("/groups/:groupID/members/:userID", async (req, res) => {
+  const groupID = req.params.groupID;
+  const userID = req.params.userID;
+  console.log("Received request to remove user {" + userID + "} from group {" + groupID + "}")
+
+  // Remove user-group relationship
+  const { error } = await supabase
+    .from("user-groups")
+    .delete()
+    .eq('userID', userID)
+    .eq('groupID', groupID);
+
+  if (error) {
+    console.error(error);
+    return res.status(500).send({ message: error });
+  }
+  console.log("Successfully removed user from group");
   res.send({ message: "Success!" });
 });
